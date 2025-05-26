@@ -1,0 +1,6 @@
+CSSharpLanguageCentral/bin/*
+CSSharpLanguageCentral/obj/*
+
+.idea
+
+CSSharpLanguageCentral.sln.DotSettings.user
