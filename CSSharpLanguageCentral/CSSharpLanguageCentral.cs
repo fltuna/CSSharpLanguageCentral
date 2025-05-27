@@ -1,11 +1,15 @@
-﻿using System.Globalization;
+﻿using System.Collections.Concurrent;
+using System.Globalization;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Modules.Entities;
+using CSSharpLanguageCentral.Config;
+using CSSharpLanguageCentral.Database;
 using MaxMind.GeoIP2;
+using Microsoft.Extensions.Logging;
 
 namespace CSSharpLanguageCentral;
 
@@ -21,18 +25,19 @@ public class CsSharpLanguageCentral : BasePlugin
     public readonly FakeConVar<string> GeoIpDatabaseFileName = new("csslc_geoip_database_file", "The GeoIP database file to use for client country detection", "GeoLite2-City.mmdb");
     
     private readonly Dictionary<int, string> _clientCountry = new();
+    private readonly Dictionary<int, SteamID> _userSteamIds = new();
     
-    private readonly Dictionary<int, bool> _isPlayerLanguageLoaded = new();
+    private readonly ConcurrentDictionary<int, bool> _isPlayerLanguageLoaded = new();
 
-    private static readonly Dictionary<string, string> CountryMapping = new()
-    {
-        {"US", "en-US"},
-        {"JP", "ja-JP"}
-    };
+    private PluginConfig _pluginConfig = null!;
+    private LanguageDbService _languageDbService = null!;
     
     
     public override void Load(bool hotReload)
     {
+        _pluginConfig = new ConfigParser(Path.Combine(ModuleDirectory, "plugin.toml"), this).Load();
+        _languageDbService = new LanguageDbService(DbContextFactory.CreateContext(_pluginConfig.DatabaseConfig, this));
+        
         RegisterListener<Listeners.OnClientPutInServer>(OnClientPutInServer);
         RegisterListener<Listeners.OnClientConnect>(OnClientConnect);
         RegisterListener<Listeners.OnClientDisconnect>(OnClientDisconnect);
@@ -76,19 +81,20 @@ public class CsSharpLanguageCentral : BasePlugin
         if (info.ArgCount != 2)
             return;
         
+        var languageArg = info.GetArg(1);
+        CultureInfo culture;
         try
         {
-            var language = info.GetArg(1);
-            var cultureInfo = CultureInfo.GetCultures(CultureTypes.AllCultures).Single(x => x.Name == language);
-            PlayerLanguageManager.Instance.SetLanguage(steamId, cultureInfo);
-            info.ReplyToCommand($"Language set to {cultureInfo.NativeName}");
+            culture = CultureInfo.GetCultures(CultureTypes.AllCultures).Single(x => x.Name == languageArg);
         }
         catch (InvalidOperationException)
         {
             info.ReplyToCommand("Language not found.");
+            return;
         }
         
-        // TODO Save to DB
+        PlayerLanguageManager.Instance.SetLanguage(steamId, culture);
+        info.ReplyToCommand($"Language set to {culture.NativeName}");
     }
 
 
@@ -98,24 +104,45 @@ public class CsSharpLanguageCentral : BasePlugin
         
         if (player == null)
             return;
+
+        _clientCountry.Remove(slot, out var country);
         
-        if(!_clientCountry.TryGetValue(slot, out var country))
-            return;
+        country ??= _pluginConfig.FallbackLanguage.Name;
 
-        _clientCountry.Remove(slot);
-
-        if (!CountryMapping.TryGetValue(country, out var languageIp))
-        {
-            languageIp = CountryMapping["US"];
-        }
-
-        var culture = new CultureInfo(languageIp);
+        var culture = _pluginConfig.CountryLanguageMapping.TryGetValue(country, out var languageName)
+            ? new CultureInfo(languageName) :
+            _pluginConfig.FallbackLanguage;
 
         var steamId = (SteamID)player.SteamID;
+        _userSteamIds[slot] = steamId;
         
         PlayerLanguageManager.Instance.SetLanguage(steamId, culture);
         
-        // TODO Load from DB
+        Task.Run(async () =>
+        {
+            var playerLang = await _languageDbService.GetLanguageAsync(steamId.SteamId64);
+            
+            await Server.NextFrameAsync(() =>
+            {
+                if (playerLang == null)
+                {
+                    AddTimer(5.0F, () =>
+                    {
+                        player.PrintToChat("Use !lang to change language");
+                    });
+                }
+                else
+                {
+                    PlayerLanguageManager.Instance.SetLanguage(steamId, playerLang);
+
+                    AddTimer(5.0F, () =>
+                    {
+                        player.PrintToChat("language loaded, use !lang to change lang");
+                    });
+                }
+                _isPlayerLanguageLoaded[slot] = true;
+            });
+        });
     }
 
 
@@ -134,7 +161,7 @@ public class CsSharpLanguageCentral : BasePlugin
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            // Ignored
         }
     }
 
@@ -144,7 +171,22 @@ public class CsSharpLanguageCentral : BasePlugin
         if (!_isPlayerLanguageLoaded.Remove(slot, out var isLoaded) || !isLoaded)
             return;
         
+        if (!_userSteamIds.TryGetValue(slot, out var playerSteamId))
+            return;
         
-        // TODO Save to DB
+        var culture = PlayerLanguageManager.Instance.GetLanguage(playerSteamId);
+        
+        Task.Run(async () =>
+        {
+            bool isOperationSucceeded = await _languageDbService.SaveLanguageAsync(playerSteamId.SteamId64, culture);
+
+            await Server.NextFrameAsync(() =>
+            {
+                if (!isOperationSucceeded)
+                {
+                    Logger.LogError("Failed to save language for player {SteamID}", playerSteamId.SteamId64);
+                }
+            });
+        });
     }
 }
