@@ -200,10 +200,7 @@ FallbackLanguage = ""en""
 # Maps country and language
 # See ""ISO 3166-1"" to available country codes
 # See ""ISO 639"" to available language codes.
-LanguageMapping = { 
-    JA = ""ja"",
-    US = ""en""
-}
+LanguageMapping = { JA = ""ja"", US = ""en"" }
 
 # Database
 DatabaseType = ""sqlite""
