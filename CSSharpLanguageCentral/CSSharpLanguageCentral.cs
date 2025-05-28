@@ -8,6 +8,7 @@ using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Modules.Entities;
 using CSSharpLanguageCentral.Config;
 using CSSharpLanguageCentral.Database;
+using CSSharpLanguageCentral.Util;
 using MaxMind.GeoIP2;
 using Microsoft.Extensions.Logging;
 
@@ -41,10 +42,12 @@ public class CsSharpLanguageCentral : BasePlugin
         RegisterListener<Listeners.OnClientPutInServer>(OnClientPutInServer);
         RegisterListener<Listeners.OnClientConnect>(OnClientConnect);
         RegisterListener<Listeners.OnClientDisconnect>(OnClientDisconnect);
+
+
+        CommandRemover.RemoveCommandByDefinition("css_lang");
         
         AddCommand("css_language", "", SetLanguageCommand);
-        
-        AddCommandListener("css_lang", LanguageCommandListener, HookMode.Pre);
+        AddCommand("css_lang", "", SetLanguageCommand);
     }
 
     public override void Unload(bool hotReload)
@@ -54,8 +57,7 @@ public class CsSharpLanguageCentral : BasePlugin
         RegisterListener<Listeners.OnClientDisconnect>(OnClientDisconnect);
         
         RemoveCommand("css_language", SetLanguageCommand);
-        
-        RemoveCommandListener("css_lang", LanguageCommandListener, HookMode.Pre);
+        RemoveCommand("css_lang", SetLanguageCommand);
     }
 
     private HookResult LanguageCommandListener(CCSPlayerController? player, CommandInfo info)
