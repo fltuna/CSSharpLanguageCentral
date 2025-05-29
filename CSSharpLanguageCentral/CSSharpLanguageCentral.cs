@@ -76,7 +76,7 @@ public class CsSharpLanguageCentral : BasePlugin
         if (info.ArgCount == 1)
         {
             var language = PlayerLanguageManager.Instance.GetLanguage(steamId);
-            info.ReplyToCommand($"Current language is \"{language.Name}\" ({language.NativeName})");
+            PrintLocalizedChatWithPrefixToPlayer(player, "Language.Command.CurrentLanguage", language.NativeName, language.Name);
             return;
         }
 
@@ -91,12 +91,12 @@ public class CsSharpLanguageCentral : BasePlugin
         }
         catch (InvalidOperationException)
         {
-            info.ReplyToCommand("Language not found.");
+            PrintLocalizedChatWithPrefixToPlayer(player, "Language.Command.LanguageNotFound", languageArg);
             return;
         }
         
         PlayerLanguageManager.Instance.SetLanguage(steamId, culture);
-        info.ReplyToCommand($"Language set to {culture.NativeName}");
+        PrintLocalizedChatWithPrefixToPlayer(player, "Language.Command.LanguageChanged", culture.NativeName, culture.Name);
     }
 
 
@@ -130,7 +130,7 @@ public class CsSharpLanguageCentral : BasePlugin
                 {
                     AddTimer(5.0F, () =>
                     {
-                        player.PrintToChat("Use !lang to change language");
+                        PrintLocalizedChatWithPrefixToPlayer(player, "General.Notification.JoinMessage.LanguageNotLoaded");
                     });
                 }
                 else
@@ -139,7 +139,7 @@ public class CsSharpLanguageCentral : BasePlugin
 
                     AddTimer(5.0F, () =>
                     {
-                        player.PrintToChat("language loaded, use !lang to change lang");
+                        PrintLocalizedChatWithPrefixToPlayer(player, "General.Notification.JoinMessage.LanguageLoaded", playerLang.NativeName);
                     });
                 }
                 _isPlayerLanguageLoaded[slot] = true;
@@ -161,7 +161,7 @@ public class CsSharpLanguageCentral : BasePlugin
             
             _clientCountry[playerSlot] = city.Country.IsoCode ?? "";
         }
-        catch (Exception e)
+        catch (Exception)
         {
             // Ignored
         }
@@ -190,5 +190,33 @@ public class CsSharpLanguageCentral : BasePlugin
                 }
             });
         });
+    }
+    
+    
+    
+    private void PrintLocalizedChatWithPrefixToPlayer(CCSPlayerController? player, string translationKey, params object[] args)
+    {
+        if (player == null)
+        {
+            Server.PrintToConsole($"{LocalizeText(player, translationKey, args)}");
+            return;
+        }
+        
+        player.PrintToChat(GetTextWithPluginPrefix(player, LocalizeText(player, translationKey, args)).ToString());
+    }
+
+    private ReadOnlySpan<char> GetTextWithPluginPrefix(CCSPlayerController player, ReadOnlySpan<char> text)
+    {
+        return $"{Localizer.ForPlayer(player, "Plugin.Prefix")} {text}".AsSpan();
+    }
+
+    private ReadOnlySpan<char> LocalizeText(CCSPlayerController? player, string translationKey, params object[] args)
+    {
+        if (player == null)
+        {
+            return Localizer[translationKey, args].Value.AsSpan();
+        }
+
+        return Localizer.ForPlayer(player, translationKey, args).AsSpan();
     }
 }

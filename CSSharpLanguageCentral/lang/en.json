@@ -1,0 +1,8 @@
+﻿{
+    "Plugin.Prefix": "{blue}[SLC]{default}",
+    "General.Notification.JoinMessage.LanguageLoaded": "Your language data is loaded successfully. Your current language is {lime}{0}{default}",
+    "General.Notification.JoinMessage.LanguageNotLoaded": "Use {green}!lang{default} to change language.",
+    "Language.Command.CurrentLanguage": "Your current language is {lime}{0}{default} ({lime}{1}{default})",
+    "Language.Command.LanguageChanged": "Your language is now {lime}{0}{default} ({lime}{1}{default})",
+    "Language.Command.LanguageNotFound": "Specified language {lime}{0}{default} is not found"
+}

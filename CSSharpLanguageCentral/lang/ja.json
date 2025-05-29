@@ -1,0 +1,8 @@
+﻿{
+    "Plugin.Prefix": "{blue}[SLC]{default}",
+    "General.Notification.JoinMessage.LanguageLoaded": "言語情報のロードに成功しました。 あなたの現在の言語は {lime}{0}{default} です",
+    "General.Notification.JoinMessage.LanguageNotLoaded": "{green}!lang{default} を使用して言語の切り替えが可能です",
+    "Language.Command.CurrentLanguage": "あなたの現在の言語は {lime}{0}{default} ({lime}{1}{default}) です",
+    "Language.Command.LanguageChanged": "言語を {lime}{0}{default} ({lime}{1}{default}) に変更しました",
+    "Language.Command.LanguageNotFound": "指定された言語: {lime}{0}{default} は見つかりませんでした"
+}
